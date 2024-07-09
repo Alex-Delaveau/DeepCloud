@@ -43,7 +43,7 @@ class ImageDataset:
         return image, filename
 
 class DeepLabV3DataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, dataset: ImageDataset, transformer: Optional[DataTransformer], batch_size: int = Config.BATCH_SIZE, is_training: bool = False, shuffle: bool = True):
+    def __init__(self, dataset: ImageDataset, transformer: Optional[DataTransformer], batch_size: int = Config.BATCH_SIZE, is_training: bool = False, shuffle: bool = True, **kwargs):
         """
         Initialize the data generator.
         
@@ -53,6 +53,7 @@ class DeepLabV3DataGenerator(tf.keras.utils.Sequence):
         :param is_training: Whether this generator is for training data (applies augmentation)
         :param shuffle: Whether to shuffle the data after each epoch
         """
+        super().__init__(**kwargs)
         self.dataset = dataset
         self.transformer = transformer
         self.batch_size = batch_size

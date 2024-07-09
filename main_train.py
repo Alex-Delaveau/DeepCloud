@@ -7,6 +7,7 @@ from models.unet import create_unet_model
 from models.cloudnet import create_cloudnet_model
 from models.callbacks import get_callbacks
 from utils.config import Config
+from models.deeplab import DeepLabv3Plus
 
 def create_train_val_generators(val_ratio: float = 0.2,
                                 random_state: int = 42):
@@ -42,8 +43,14 @@ def create_train_val_generators(val_ratio: float = 0.2,
     transformer = DataTransformer()
 
     # Create generators
-    train_generator = DeepLabV3DataGenerator(train_dataset, transformer, shuffle=True, is_training=True)
-    val_generator = DeepLabV3DataGenerator(val_dataset, transformer, shuffle=False, is_training=True)
+    train_generator = DeepLabV3DataGenerator(train_dataset, transformer, shuffle=True, is_training=True, 
+                                            workers=4,
+                                            use_multiprocessing=True,
+                                            max_queue_size=10)
+    val_generator = DeepLabV3DataGenerator(val_dataset, transformer, shuffle=False, is_training=True,
+                                            workers=4,
+                                            use_multiprocessing=True,
+                                            max_queue_size=10)
 
     return train_generator, val_generator
 
@@ -70,10 +77,22 @@ def train_cloudnet(train_generator, val_generator, input_shape = Config.MODEL_IN
         callbacks=callbacks
     )
 
+def train_deeplab(train_generator, val_generator, input_shape = Config.MODEL_INPUT_SHAPE , max_num_epochs = Config.MAX_EPOCHS):
+    callbacks = get_callbacks(model_name='deeplab')
+    deeplab = DeepLabv3Plus(input_shape=input_shape)
+    deeplab.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    deeplab.fit(
+        train_generator,
+        validation_data=val_generator,
+        epochs=max_num_epochs,
+        callbacks=callbacks
+    )
+
 def main():
     train_generator, val_generator = create_train_val_generators()
     # Train the model
-    train_unet(train_generator, val_generator)
+    # train_unet(train_generator, val_generator)
+    train_deeplab(train_generator, val_generator)
 
 # Call main
 if __name__ == "__main__":
