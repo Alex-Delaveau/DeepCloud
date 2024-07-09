@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
+from utils.config import Config
 
 def conv_block(inputs, filters):
     x = layers.Conv2D(filters, 3, padding='same')(inputs)
@@ -8,7 +9,7 @@ def conv_block(inputs, filters):
     x = layers.ReLU()(x)
     return x
 
-def create_unet_model(input_shape=(384, 384, 4), out_channels=1):
+def create_unet_model(input_shape=Config.MODEL_INPUT_SHAPE, out_channels=1):
     inputs = layers.Input(shape=input_shape)
 
     # Downsampling

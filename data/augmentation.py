@@ -2,11 +2,12 @@ import numpy as np
 import cv2
 from skimage import transform
 from typing import Tuple
+from utils.config import Config
 
 class DataTransformer:
-    def __init__(self, img_rows: int, img_cols: int, max_possible_input_value: float = 65536):
-        self.img_rows = img_rows
-        self.img_cols = img_cols
+    def __init__(self, img_shape = Config.IMAGE_SIZE, max_possible_input_value: float = Config.MAX_PIXEL_VALUE):
+        self.img_rows = img_shape[0]
+        self.img_cols = img_shape[1]
         self.max_possible_input_value = max_possible_input_value
 
     def transform_image(self, image):

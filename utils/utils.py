@@ -1,6 +1,6 @@
 from PIL import Image
 import numpy as np
-import os
+import tensorflow as tf
 
 def save_image_mask(image, mask, image_path, mask_path):
     # Extract only the RGB channels for the image
@@ -25,9 +25,12 @@ def save_image_mask(image, mask, image_path, mask_path):
     mask_pil = Image.fromarray(binary_mask * 255)  # Multiply by 255 to get 0 and 255 values
 
     # Save the RGB image and mask as TIFF
-    image_pil.save(image_path, "TIFF", compression="tiff_deflate", save_all=True, photometric='minisblack')
-    mask_pil.save(mask_path, "TIFF", compression="tiff_deflate", save_all=True, photometric='minisblack')
+    save_tiff(image_pil, image_path)
+    save_tiff(mask_pil, mask_path)
 
+
+def save_tiff(image, path):
+    image.save(path, "TIFF", compression="tiff_deflate", save_all=True, photometric='minisblack')
 
 def extract_filename(path: str) -> str:
         """Extract filename from path, removing the color prefix."""
@@ -51,3 +54,8 @@ def extract_scene_ids(filename: str) -> str:
     
     # Remove the color prefix (first part) and join the rest
     return '_'.join(parts[5:])
+
+
+def load_model(path):
+    model = tf.keras.models.load_model(path)
+    return model

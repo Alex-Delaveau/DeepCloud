@@ -2,7 +2,6 @@ __pycache__/
 
 logs/
 dcvenv/
-predictions/
-saved_models/
-metrics/
+venv/
+output/
 *.TIF

@@ -1,62 +1,14 @@
-import os
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
-import tensorflow as tf
 
-from dataset import CSVLoader
-from dataset import ImageDataset, DeepLabV3DataGenerator
-from augmentation import DataTransformer
-from unet import create_unet_model
-from cloudnet import create_cloudnet_model
 
-GLOBAL_PATH = '../CloudNet/Full_Cloud/'
-TRAIN_PATH = os.path.join(GLOBAL_PATH, 'train/')
-TRAIN_CSV = os.path.join(TRAIN_PATH, 'train_set.csv')
-SAVE_PATH = 'saved_models/'
+from data.dataset import ImageDataset, DeepLabV3DataGenerator, CSVLoader
+from data.augmentation import DataTransformer
+from models.unet import create_unet_model
+from models.cloudnet import create_cloudnet_model
+from models.callbacks import get_callbacks
+from utils.config import Config
 
-def get_callbacks(model_name='unet', monitor='val_loss'):
-    callbacks = [
-        EarlyStopping(
-            monitor=monitor,
-            patience=10,
-            verbose=1,
-            mode='min',
-            restore_best_weights=True
-        ),
-        ReduceLROnPlateau(
-            monitor=monitor,
-            factor=0.1,
-            patience=5,
-            verbose=1,
-            mode='min',
-            min_delta=0.0001,
-            cooldown=0,
-            min_lr=1e-7
-        ),
-        ModelCheckpoint(
-            filepath=os.path.join(SAVE_PATH,f'best_{model_name}.keras'),
-            monitor=monitor,
-            verbose=1,
-            save_best_only=True,
-            mode='min'
-        ),
-        TensorBoard(
-            log_dir=f'./logs/{model_name}',
-            histogram_freq=1,
-            write_graph=True,
-            write_images=True,
-            update_freq='epoch',
-            profile_batch=2,
-            embeddings_freq=1
-        )
-    ]
-    return callbacks
-
-def create_train_val_generators(img_rows: int,
-                                img_cols: int,
-                                batch_size: int,
-                                val_ratio: float = 0.2,
-                                max_possible_input_value: float = 65536,
+def create_train_val_generators(val_ratio: float = 0.2,
                                 random_state: int = 42):
     """
     Create train and validation generators.
@@ -70,45 +22,48 @@ def create_train_val_generators(img_rows: int,
     :return: Tuple of (train_generator, val_generator)
     """
 
-    csv_loader = CSVLoader(TRAIN_CSV)
-    image_paths, mask_paths = csv_loader.load_images_path(TRAIN_PATH)
+    csv_loader = CSVLoader(Config.TRAIN_CSV)
+    image_paths, mask_paths = csv_loader.load_images_path(Config.TRAIN_PATH)
 
-    image_paths_sub = image_paths[:100]
-    mask_path_sub = mask_paths[:100]
+    # create subset
+    image_paths = image_paths[:100]
+    mask_paths = mask_paths[:100]
+
 
     # Split the data
     train_images_path, val_images_path, train_masks_path, val_masks_path = train_test_split(
-        image_paths_sub, mask_path_sub, test_size=val_ratio, random_state=random_state)
+        image_paths, mask_paths, test_size=val_ratio, random_state=random_state)
 
     # Create datasets
     train_dataset = ImageDataset(train_images_path, train_masks_path)
     val_dataset = ImageDataset(val_images_path, val_masks_path)
 
     # Create transformer
-    transformer = DataTransformer(img_rows, img_cols, max_possible_input_value)
+    transformer = DataTransformer()
 
     # Create generators
-    train_generator = DeepLabV3DataGenerator(train_dataset, transformer, batch_size, shuffle=True, is_training=True)
-    val_generator = DeepLabV3DataGenerator(val_dataset, transformer, batch_size, shuffle=False, is_training=True)
+    train_generator = DeepLabV3DataGenerator(train_dataset, transformer, shuffle=True, is_training=True)
+    val_generator = DeepLabV3DataGenerator(val_dataset, transformer, shuffle=False, is_training=True)
 
     return train_generator, val_generator
 
-def train_unet(input_shape, train_generator, val_generator, max_num_epochs):
+
+def train_unet(train_generator, val_generator, input_shape = Config.MODEL_INPUT_SHAPE , max_num_epochs = Config.MAX_EPOCHS):
     callbacks = get_callbacks(model_name='unet')
-    unet = create_unet_model(input_shape=input_shape, out_channels=1)
+    unet = create_unet_model(input_shape, 1)
     unet.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    history = unet.fit(
+    unet.fit(
         train_generator,
         validation_data=val_generator,
         epochs=max_num_epochs,
         callbacks=callbacks
     )
 
-def train_cloudnet(input_shape, train_generator, val_generator, max_num_epochs):
+def train_cloudnet(train_generator, val_generator, input_shape = Config.MODEL_INPUT_SHAPE , max_num_epochs = Config.MAX_EPOCHS):
     callbacks = get_callbacks(model_name='cloud-net')
     cloudnet = create_cloudnet_model(input_shape=input_shape, out_channels=1)
     cloudnet.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    history = cloudnet.fit(
+    cloudnet.fit(
         train_generator,
         validation_data=val_generator,
         epochs=max_num_epochs,
@@ -116,16 +71,9 @@ def train_cloudnet(input_shape, train_generator, val_generator, max_num_epochs):
     )
 
 def main():
-    # print tensorflow version
-    print(tf.__version__)
-    max_num_epochs = 2000 
-    train_generator, val_generator = create_train_val_generators(384, 384, 12, 0.2, 65536, 42)
-    
-    input_shape = (384, 384, 4)
-
+    train_generator, val_generator = create_train_val_generators()
     # Train the model
-    
-    train_unet(input_shape, train_generator, val_generator, max_num_epochs)
+    train_unet(train_generator, val_generator)
 
 # Call main
 if __name__ == "__main__":
