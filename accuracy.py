@@ -1,106 +1,108 @@
-import numpy as np
-from scipy.spatial.distance import directed_hausdorff
-from skimage import measure
 import os
+import numpy as np
 from PIL import Image
+from metrics import iou_score
 import pandas as pd
 
-def boundary_f1_score(gt_mask, pred_mask, tolerance=2):
-    def find_boundaries(mask, tolerance):
-        boundaries = np.zeros_like(mask, dtype=bool)
-        contours = measure.find_contours(mask, 0.5)
-        for contour in contours:
-            for coord in contour:
-                y, x = coord
-                boundaries[int(y), int(x)] = True
-        return boundaries
-
-    gt_boundaries = find_boundaries(gt_mask, tolerance)
-    pred_boundaries = find_boundaries(pred_mask, tolerance)
-    
-    true_positive = np.sum(gt_boundaries & pred_boundaries)
-    false_positive = np.sum(~gt_boundaries & pred_boundaries)
-    false_negative = np.sum(gt_boundaries & ~pred_boundaries)
-    
-    precision = true_positive / (true_positive + false_positive)
-    recall = true_positive / (true_positive + false_negative)
-    f1 = 2 * (precision * recall) / (precision + recall)
-    
-    return f1
+GLOBAL_PATH = '../CloudNet/Full_Cloud/'
+TEST_PATH = os.path.join(GLOBAL_PATH, 'test/')
 
 
-def hausdorff_distance(gt_mask, pred_mask):
-    gt_points = np.column_stack(np.where(gt_mask > 0))
-    pred_points = np.column_stack(np.where(pred_mask > 0))
-    
-    if len(gt_points) == 0 or len(pred_points) == 0:
-        return np.inf  # Infinite distance if one of the masks is empty
-    
-    forward_hausdorff = directed_hausdorff(gt_points, pred_points)[0]
-    backward_hausdorff = directed_hausdorff(pred_points, gt_points)[0]
-    
-    return max(forward_hausdorff, backward_hausdorff)
+def load_mask_couple(mask_tuple):
 
-def relaxed_iou_score(gt_mask, pred_mask):
-    intersection = np.logical_and(gt_mask, pred_mask)
-    union = np.logical_or(gt_mask, pred_mask)
-    iou_score = np.sum(intersection) / np.sum(union)
-    
-    return iou_score
 
-def normalized_cross_correlation(gt_mask, pred_mask):
-    gt_mean = np.mean(gt_mask)
-    pred_mean = np.mean(pred_mask)
-    
-    numerator = np.sum((gt_mask - gt_mean) * (pred_mask - pred_mean))
-    denominator = np.sqrt(np.sum((gt_mask - gt_mean) ** 2) * np.sum((pred_mask - pred_mean) ** 2))
-    
-    return numerator / denominator
+    gt_image = Image.open(mask_tuple[0])
+    gt_image.save('gt_mask.TIF')
 
-def run_accuracy_x(gt_mask, pred_mask_binary):
-    # Calculate metrics
-    # f1 = boundary_f1_score(gt_mask, pred_mask_binary)
-    # hausdorff = hausdorff_distance(gt_mask, pred_mask_binary)
-    iou = relaxed_iou_score(gt_mask, pred_mask_binary)
-    # ncc = normalized_cross_correlation(gt_mask, pred_mask_binary)
+    pred_image = Image.open(mask_tuple[1])
+    pred_image.save('pred_mask.TIF')
 
-    return iou
+    gt_mask = np.array(gt_image)
+    pred_mask = np.array(pred_image)
+  
 
-def run_accuracy(gt_path, prediction_path):
-    # for each file in gt_path and prediction_path (same file name)
-    # calculate the accuracy metrics
-    # save the results in a csv file and compute the mean and std of each metric
-    results = []
+    return gt_mask, pred_mask
 
-    for filename in os.listdir(gt_path):
-        gt_file = os.path.join(gt_path, filename)
-        pred_file = os.path.join(prediction_path, filename)
-        if not os.path.exists(pred_file):
-            print(f"Prediction file {pred_file} does not exist. Skipping.")
-            continue
+def run_accuracy(gt_mask, pred_mask):
 
-        gt_mask = np.array(Image.open(gt_file))
-        pred_mask = np.array(Image.open(pred_file))
 
-        metrics = run_accuracy_x(gt_mask, pred_mask)
+    # return a datastructure with the metrics
 
-        # metrics_data = {
-        #     "filename": filename,
-        #     "f1": metrics[0],
-        #     "hausdorff": metrics[1],
-        #     "iou": metrics[2],
-        #     "ncc": metrics[3]
-        # }
-        print(f"Metrics for {filename}: {metrics}")
-        results.append(metrics)
+    iou = iou_score(gt_mask, pred_mask)
 
-    df = pd.DataFrame(results)
-    df.to_csv("accuracy_results.csv", index=False)
-    mean_metrics = df.mean()
-    std_metrics = df.std()
+    metrics = {
+        "iou": iou
+    }
 
-    print(f"Mean Metrics:\n{mean_metrics}")
-    print(f"\nStandard Deviation of Metrics:\n{std_metrics}")
+    return metrics
 
-    return df, mean_metrics, std_metrics
 
+
+def run_accuracy_on_couples_path(coupled_masks_path):
+    """
+    Gather metrics and get a mean value by scene and overall and save it in a csv file.
+    One file for each scene with the mean and std of all the metrics computed by run_accuracy,
+    and one file with the overall metrics.
+    """
+    os.makedirs('metrics', exist_ok=True)
+    scene_metrics = {}
+
+    for scene, mask_tuples in coupled_masks_path.items():
+        metrics_list = []  # List to store metrics dictionaries for each mask
+
+        for mask_tuple in mask_tuples:
+            gt_mask, pred_mask = load_mask_couple(mask_tuple)
+            metrics_dict = run_accuracy(gt_mask, pred_mask)
+            metrics_list.append(metrics_dict)  # Append the metrics dictionary to the list
+
+        # Convert the list of dictionaries to a DataFrame and calculate mean and std
+        scene_metrics_df = pd.DataFrame(metrics_list)
+        scene_metrics[scene] = {
+            'mean': scene_metrics_df.mean().to_dict(),
+            'std': scene_metrics_df.std().to_dict()
+        }
+
+        # Save the scene metrics in a csv file in the metrics folder
+        scene_metrics_df.describe().to_csv(f'metrics/{scene}_metrics.csv')
+
+    # To calculate overall metrics, first flatten the list of all metrics dictionaries
+    all_metrics_list = []
+    for metrics in scene_metrics.values():
+        all_metrics_list.extend([metrics['mean'], metrics['std']])  # Extend the list with mean and std dictionaries
+
+    overall_metrics_df = pd.DataFrame(all_metrics_list)
+    overall_mean = overall_metrics_df.mean().to_dict()
+    overall_std = overall_metrics_df.std().to_dict()
+    overall_metrics = {'mean': overall_mean, 'std': overall_std}
+
+    # Save the overall metrics in a csv file
+    pd.DataFrame([overall_metrics]).to_csv('metrics/overall_metrics.csv')
+
+
+
+
+
+
+
+def create_coupled_path():
+    # TODO for each folder in predictions/ iterate through the masks and find the corresponding mask in the gt folder
+    # Create tuple for each mask and gt mask and save the scene it belongs to
+    # Calculate the accuracy metrics 
+    # Save the metrics in a csv file
+
+    coupled_masks_path = {}
+
+    # iterate through the predictions folder
+    for scene in os.listdir('predictions'):
+    # Create an entry in a directory for the scene
+        coupled_masks_path[scene] = []
+
+        # iterate through the masks in the folder
+        for mask in os.listdir(os.path.join('predictions', scene, 'mask')):
+            predicted_mask_path = os.path.join('predictions', scene, 'mask', mask)
+            # Assuming TEST_PATH is defined elsewhere
+            gt_mask_path = os.path.join(TEST_PATH, 'test_gt', f'gt_{mask}')
+            coupled_masks_path[scene].append(( gt_mask_path, predicted_mask_path))
+
+
+    return coupled_masks_path

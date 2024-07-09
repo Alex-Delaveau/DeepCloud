@@ -10,7 +10,7 @@ import utils
 from dataset import CSVLoader
 from dataset import ImageDataset, DeepLabV3DataGenerator
 from augmentation import DataTransformer
-from accuracy import run_accuracy
+from accuracy import create_coupled_path, run_accuracy_on_couples_path
 from mask_creator import MaskCreator
 
 GLOBAL_PATH = '../CloudNet/Full_Cloud/'
@@ -18,6 +18,14 @@ TEST_PATH = os.path.join(GLOBAL_PATH, 'test/')
 TRAIN_CSV = os.path.join(TEST_PATH, 'test_set.csv')
 SAVE_PATH = 'saved_models/'
 PREDICTION_PATH = 'predictions/'
+
+# TODO 
+# create csv loader 
+# load path for images (4 channels)
+# predict masks (392, 392)
+# save masks
+# launch accuracy 
+
 
 def create_test_val_generators():
 
@@ -31,7 +39,7 @@ def create_test_val_generators():
     # ground_truth_dataset = ImageDataset(ground_truth_paths)
 
     # Create transformer (without augmentation for test data)
-    transformer = DataTransformer(img_rows=192, img_cols=192, max_possible_input_value=65535)
+    transformer = DataTransformer(img_rows=384, img_cols=384, max_possible_input_value=65535)
 
     # Create generators
     test_generator = DeepLabV3DataGenerator(test_dataset, transformer, batch_size=16, is_training=False)
@@ -86,9 +94,11 @@ def one_image_mask():
     utils.save_image_mask(image, prediction, 'image.tif', 'mask.tif')
 
 def predict_whole_set():
+    # TODO pass the model and generator as param, 
+
 
     test_generator = create_test_val_generators()
-    model = load_model('saved_models/best_unet.h5')
+    model = load_model('saved_models/best_unet.keras')
     # Get first image from the test generator
     for batch_images, batch_filenames in tqdm(test_generator, desc="Processing batches"):
         # Predict masks for the batch of images
@@ -110,8 +120,7 @@ def predict_whole_set():
             mask_path = os.path.join(os.path.join(scene_dir, 'mask'), f"{filename}.TIF")
 
             # Save the original image and its predicted mask
-            pred_mask_binary = (prediction > 0.5).astype(np.uint8)
-            utils.save_image_mask(image, pred_mask_binary, image_path, mask_path)
+            utils.save_image_mask(image, prediction, image_path, mask_path)
 
 
 
@@ -119,11 +128,11 @@ def predict_whole_set():
 
 
 def main():
-    predict_whole_set()
-    # MaskCreator.create_prediction_scene()
-    # prediction_scene_path = os.path.join(MaskCreator.PREDICTION_PATH, 'predicted_scenes')
-    # gt_scene_path = os.path.join(MaskCreator.PREDICTION_PATH, 'gt_scene')
-    # run_accuracy(gt_scene_path, prediction_scene_path)
+    # predict_whole_set()
+    coupled_paths = create_coupled_path()
+    run_accuracy_on_couples_path(coupled_paths)
+
+
    
 
 

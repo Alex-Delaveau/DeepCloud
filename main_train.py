@@ -1,6 +1,7 @@
 import os
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint, TensorBoard
+import tensorflow as tf
 
 from dataset import CSVLoader
 from dataset import ImageDataset, DeepLabV3DataGenerator
@@ -33,7 +34,7 @@ def get_callbacks(model_name='unet', monitor='val_loss'):
             min_lr=1e-7
         ),
         ModelCheckpoint(
-            filepath=os.path.join(SAVE_PATH,f'best_{model_name}.h5'),
+            filepath=os.path.join(SAVE_PATH,f'best_{model_name}.keras'),
             monitor=monitor,
             verbose=1,
             save_best_only=True,
@@ -72,9 +73,12 @@ def create_train_val_generators(img_rows: int,
     csv_loader = CSVLoader(TRAIN_CSV)
     image_paths, mask_paths = csv_loader.load_images_path(TRAIN_PATH)
 
+    image_paths_sub = image_paths[:100]
+    mask_path_sub = mask_paths[:100]
+
     # Split the data
     train_images_path, val_images_path, train_masks_path, val_masks_path = train_test_split(
-        image_paths, mask_paths, test_size=val_ratio, random_state=random_state)
+        image_paths_sub, mask_path_sub, test_size=val_ratio, random_state=random_state)
 
     # Create datasets
     train_dataset = ImageDataset(train_images_path, train_masks_path)
@@ -112,10 +116,12 @@ def train_cloudnet(input_shape, train_generator, val_generator, max_num_epochs):
     )
 
 def main():
+    # print tensorflow version
+    print(tf.__version__)
     max_num_epochs = 2000 
-    train_generator, val_generator = create_train_val_generators(392, 392, 12, 0.2, 65536, 42)
+    train_generator, val_generator = create_train_val_generators(384, 384, 12, 0.2, 65536, 42)
     
-    input_shape = (392, 392, 4)
+    input_shape = (384, 384, 4)
 
     # Train the model
     
