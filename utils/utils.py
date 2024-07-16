@@ -57,5 +57,6 @@ def extract_scene_ids(filename: str) -> str:
 
 
 def load_model(path):
+    print(f"Loading model from {path}")
     model = tf.keras.models.load_model(path)
     return model

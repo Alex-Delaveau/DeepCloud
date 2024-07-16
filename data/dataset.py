@@ -29,7 +29,8 @@ class ImageDataset:
 
     def load_mask(mask_path: str) -> np.ndarray:
         """Load the mask image."""
-        return cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+        mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+        return mask
 
     def __len__(self):
         return len(self.image_paths)
@@ -53,7 +54,7 @@ class DeepLabV3DataGenerator(tf.keras.utils.Sequence):
         :param is_training: Whether this generator is for training data (applies augmentation)
         :param shuffle: Whether to shuffle the data after each epoch
         """
-        super().__init__(**kwargs)
+        super().__init__()
         self.dataset = dataset
         self.transformer = transformer
         self.batch_size = batch_size

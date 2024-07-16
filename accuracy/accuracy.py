@@ -28,8 +28,8 @@ def calculate_percentile_metrics(df, percentiles=[90, 99]):
             percentile_metrics[f'top_{percentile}%_{metric}'] = df[df[metric] >= threshold][metric].mean()
     return percentile_metrics
 
-def run_accuracy_on_couples_path(coupled_masks_path):
-    os.makedirs(Config.METRICS_DIR, exist_ok=True)
+def run_accuracy_on_couples_path(coupled_masks_path, output_dir=Config.METRICS_DIR):
+    os.makedirs(output_dir, exist_ok=True)
     scene_metrics = {}
     all_metrics_list = []
 
@@ -63,7 +63,7 @@ def run_accuracy_on_couples_path(coupled_masks_path):
 
         # Save the scene metrics in a csv file in the metrics folder
         output_df = pd.DataFrame(output_data)
-        output_df.to_csv(os.path.join(Config.METRICS_DIR, f'{scene}_metrics.csv'), index=False)
+        output_df.to_csv(os.path.join(output_dir, f'{scene}_metrics.csv'), index=False)
 
         all_metrics_list.extend(metrics_list)
 
@@ -87,11 +87,11 @@ def run_accuracy_on_couples_path(coupled_masks_path):
 
     # Save the overall metrics in a csv file
     overall_output_df = pd.DataFrame(overall_output_data)
-    overall_output_df.to_csv(Config.OVERALL_METRICS_PATH, index=False)
+    overall_output_df.to_csv(os.path.join(output_dir, 'overall_metrics.csv'), index=False)
 
-def create_coupled_path():
+def create_coupled_path(path=Config.PREDICTION_PATH):
     coupled_masks_path = {}
-    for scene in os.listdir(Config.PREDICTION_PATH):
+    for scene in os.listdir(path):
         coupled_masks_path[scene] = []
         for mask in os.listdir(os.path.join(Config.PREDICTION_PATH, scene, Config.MASK)):
             predicted_mask_path = os.path.join(Config.PREDICTION_PATH, scene, Config.MASK, mask)

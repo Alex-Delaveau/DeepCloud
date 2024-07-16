@@ -10,12 +10,6 @@ from data.augmentation import DataTransformer
 from accuracy.accuracy import create_coupled_path, run_accuracy_on_couples_path
 
 
-GLOBAL_PATH = '../CloudNet/Full_Cloud/'
-TEST_PATH = os.path.join(GLOBAL_PATH, 'test/')
-TRAIN_CSV = os.path.join(TEST_PATH, 'test_set.csv')
-SAVE_PATH = 'saved_models/'
-PREDICTION_PATH = 'predictions/'
-
 def create_test_val_generators():
 
     test_csv_loader = CSVLoader(Config.TEST_CSV)
@@ -33,12 +27,14 @@ def create_test_val_generators():
     return test_generator
 
 
-def predict_whole_set(model, generator):
+def predict_whole_set(model, generator, path=Config.PREDICTION_PATH):
 
     # Get first image from the test generator
     for batch_images, batch_filenames in tqdm(generator, desc="Processing batches"):
         # Predict masks for the batch of images
+        print(batch_images.shape)
         batch_predictions = model.predict(batch_images)
+        print(batch_predictions.shape)
 
         # Iterate through each image, prediction, and filename in the batch
         for image, prediction, filename in zip(batch_images, batch_predictions, batch_filenames):
@@ -46,7 +42,8 @@ def predict_whole_set(model, generator):
             scene_identifier = utils.extract_scene_ids(filename)  # Adjust this based on your filename format
 
             # Create a directory for the scene if it doesn't exist
-            scene_dir = os.path.join(Config.PREDICTION_PATH, scene_identifier)
+            scene_dir = os.path.join(path, scene_identifier)
+            print(scene_dir)
             os.makedirs(scene_dir, exist_ok=True)
             os.makedirs(os.path.join(scene_dir, Config.IMAGE), exist_ok=True)
             os.makedirs(os.path.join(scene_dir, Config.MASK), exist_ok=True)
@@ -60,11 +57,19 @@ def predict_whole_set(model, generator):
 
 
 def main():
-    u_net = utils.load_model(Config.UNET_PATH)
-    generators = create_test_val_generators()
-    # predict_whole_set(u_net, generators)
-    coupled_paths = create_coupled_path()
-    run_accuracy_on_couples_path(coupled_paths)
+    models = {
+        'unet' : utils.load_model(Config.UNET_PATH), 
+        # 'cloudnet' : utils.load_model(Config.CLOUDNET_PATH), 
+        # 'deeplab' : utils.load_model(Config.DEEPLAB_PATH)
+        }
+    # UNET
+    for model_name, model in models.items():
+        print(f"Running predictions for {model_name}")
+        generators = create_test_val_generators()
+        model_path = os.path.join(Config.PREDICTION_PATH, model_name)
+        predict_whole_set(model, generators, model_path)
+        # coupled_paths = create_coupled_path(model_path)
+        # run_accuracy_on_couples_path(coupled_paths, os.path.join(Config.METRICS_DIR, model_name))
 
 
 if __name__ == "__main__":

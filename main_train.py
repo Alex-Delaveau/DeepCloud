@@ -8,6 +8,7 @@ from models.cloudnet import create_cloudnet_model
 from models.callbacks import get_callbacks
 from utils.config import Config
 from models.deeplab import DeepLabv3Plus
+from models.lightweight_unet import build_lightweight_unet, build_super_lightweight_unet
 
 def create_train_val_generators(val_ratio: float = 0.2,
                                 random_state: int = 42):
@@ -27,8 +28,8 @@ def create_train_val_generators(val_ratio: float = 0.2,
     image_paths, mask_paths = csv_loader.load_images_path(Config.TRAIN_PATH)
 
     # create subset
-    image_paths = image_paths[:100]
-    mask_paths = mask_paths[:100]
+    # image_paths = image_paths[:100]
+    # mask_paths = mask_paths[:100]
 
 
     # Split the data
@@ -88,11 +89,34 @@ def train_deeplab(train_generator, val_generator, input_shape = Config.MODEL_INP
         callbacks=callbacks
     )
 
+def train_lighweight(train_generator, val_generator, input_shape = Config.MODEL_INPUT_SHAPE , max_num_epochs = Config.MAX_EPOCHS):
+    callbacks = get_callbacks(model_name='lighweitght_unet')
+    lighweight_unet = build_lightweight_unet(input_shape=input_shape, out_channels=1)
+    lighweight_unet.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    lighweight_unet.fit(
+        train_generator,
+        validation_data=val_generator,
+        epochs=max_num_epochs,
+        callbacks=callbacks
+    )
+
+def train_super_lighweight(train_generator, val_generator, input_shape = Config.MODEL_INPUT_SHAPE , max_num_epochs = Config.MAX_EPOCHS):
+    callbacks = get_callbacks(model_name='super_lighweitght_unet')
+    lighweight_unet = build_super_lightweight_unet(input_shape=input_shape, out_channels=1)
+    lighweight_unet.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    lighweight_unet.fit(
+        train_generator,
+        validation_data=val_generator,
+        epochs=max_num_epochs,
+        callbacks=callbacks
+    )
+
 def main():
     train_generator, val_generator = create_train_val_generators()
     # Train the model
     # train_unet(train_generator, val_generator)
-    train_deeplab(train_generator, val_generator)
+    # train_deeplab(train_generator, val_generator)
+    train_super_lighweight(train_generator, val_generator)
 
 # Call main
 if __name__ == "__main__":

@@ -21,6 +21,8 @@ class Config:
 
     # Model properties
     UNET_PATH = os.path.join(SAVE_PATH, 'best_unet.keras')
+    CLOUDNET_PATH = os.path.join(SAVE_PATH, 'best_cloud-net.keras')
+    DEEPLAB_PATH = os.path.join(SAVE_PATH, 'best_deeplab.keras')
     MODEL_INPUT_SHAPE = (192, 192, 4)
     BATCH_SIZE = 12
     NUM_CLASSES = 1
